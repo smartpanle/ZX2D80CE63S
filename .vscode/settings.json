@@ -70,7 +70,8 @@
         "semphr.h": "c",
         "cstring": "c",
         "inet.h": "c",
-        "remote_log.h": "c"
+        "remote_log.h": "c",
+        "lv_demo_benchmark.h": "c"
     },
     "cmake.configureOnOpen": false
 }
