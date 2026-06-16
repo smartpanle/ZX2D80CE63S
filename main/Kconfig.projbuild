@@ -1,0 +1,15 @@
+menu "Application Features"
+
+    config APP_ENABLE_RS485
+        bool "Enable RS485 demo"
+        default y
+        help
+            Build and start the RS485 demo tasks during app startup.
+
+    config APP_ENABLE_LVGL
+        bool "Enable LVGL demo"
+        default y
+        help
+            Build and start the LCD and LVGL demo during app startup.
+
+endmenu

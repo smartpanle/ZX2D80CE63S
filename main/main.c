@@ -1,15 +1,10 @@
-/*
- * SPDX-FileCopyrightText: 2021-2025 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: CC0-1.0
- */
-
 #include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/lock.h>
 #include <sys/param.h>
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "esp_timer.h"
 #include "esp_lcd_panel_io.h"
@@ -24,7 +19,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "lvgl.h"
-#include "qmsd_board_pin.h"
+#include "ZX2D80CE63S-V10_pin.h"
 
 #if CONFIG_LV_USE_DEMO_WIDGETS
 #include "demos/widgets/lv_demo_widgets.h"
@@ -42,7 +37,7 @@ static const char *TAG = "example";
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Please update the following configuration according to your LCD spec //////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
+#define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (40 * 1000 * 1000)
 #define EXAMPLE_LCD_SPI_MODE           0
 #define EXAMPLE_LCD_BK_LIGHT_ON_LEVEL  1
 #define EXAMPLE_LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
@@ -52,6 +47,7 @@ static const char *TAG = "example";
 #define EXAMPLE_PIN_NUM_LCD_DC         (LCD_RS_PIN)
 #define EXAMPLE_PIN_NUM_LCD_RST        (LCD_RST_PIN)
 #define EXAMPLE_PIN_NUM_LCD_CS         (LCD_CS_PIN)
+#define EXAMPLE_PIN_NUM_LCD_TE         (LCD_TE_PIN)
 #define EXAMPLE_PIN_NUM_BK_LIGHT       (LCD_BL_PIN)
 #define EXAMPLE_PIN_NUM_TOUCH_INT      (TP_I2C_INT_PIN)
 #define EXAMPLE_PIN_NUM_TOUCH_RST      (TP_I2C_RST_PIN)
@@ -83,6 +79,9 @@ static const char *TAG = "example";
 static _lock_t lvgl_api_lock;
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
+#if CONFIG_APP_ENABLE_RS485
+extern void rs485_demo(void);
+#endif
 
 static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)
 {
@@ -179,6 +178,18 @@ static void example_lvgl_port_task(void *arg)
 
 void app_main(void)
 {
+#if CONFIG_APP_ENABLE_RS485
+    rs485_demo();
+#endif
+
+#if !CONFIG_APP_ENABLE_LVGL
+    ESP_LOGI(TAG, "LVGL demo disabled in menuconfig");
+#if !CONFIG_APP_ENABLE_RS485
+    ESP_LOGW(TAG, "No application feature enabled");
+#endif
+    return;
+#endif
+
     ESP_LOGI(TAG, "Turn off LCD backlight");
     gpio_config_t bk_gpio_config = {
         .mode = GPIO_MODE_OUTPUT,
@@ -318,9 +329,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Display LVGL Meter Widget");
     // Lock the mutex due to the LVGL APIs are not thread-safe
     _lock_acquire(&lvgl_api_lock);
-#if CONFIG_LV_USE_DEMO_BENCHMARK
+#if CONFIG_LV_USE_DEMO_WIDGETS && CONFIG_APP_ENABLE_LVGL
     lv_demo_widgets();
-    // lv_demo_benchmark();
 #else
     example_lvgl_demo_ui(display);
 #endif

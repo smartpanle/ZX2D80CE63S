@@ -71,7 +71,10 @@
         "cstring": "c",
         "inet.h": "c",
         "remote_log.h": "c",
-        "lv_demo_benchmark.h": "c"
+        "lv_demo_benchmark.h": "c",
+        "zx2d80ce63s-v10_pin.h": "c",
+        "stdio.h": "c",
+        "string.h": "c"
     },
     "cmake.configureOnOpen": false
 }
