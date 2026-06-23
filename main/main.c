@@ -201,8 +201,7 @@ void app_main(void)
     spi_bus_config_t buscfg = ST7789_PANEL_BUS_SPI_CONFIG(
         EXAMPLE_PIN_NUM_SCLK,
         EXAMPLE_PIN_NUM_MOSI,
-        // EXAMPLE_LCD_H_RES * 80 * sizeof(uint16_t)
-        EXAMPLE_LCD_H_RES * 160 * sizeof(uint16_t)
+        EXAMPLE_LCD_H_RES * 80 * sizeof(uint16_t)
     );
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
@@ -216,6 +215,7 @@ void app_main(void)
     );
     io_config.pclk_hz = EXAMPLE_LCD_PIXEL_CLOCK_HZ;
     io_config.spi_mode = EXAMPLE_LCD_SPI_MODE;
+    io_config.trans_queue_depth = 3;
     // Attach the LCD to the SPI bus
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(LCD_HOST, &io_config, &io_handle));
 
@@ -246,12 +246,13 @@ void app_main(void)
 
     // alloc draw buffers used by LVGL
     // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
-    size_t draw_buffer_sz = EXAMPLE_LCD_H_RES * EXAMPLE_LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
 
-    void *buf1 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
+    size_t draw_buffer_sz = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * sizeof(lv_color16_t);
+    void *buf1 = heap_caps_malloc(draw_buffer_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_DEFAULT);
     assert(buf1);
-    void *buf2 = spi_bus_dma_memory_alloc(LCD_HOST, draw_buffer_sz, 0);
+    void *buf2 = heap_caps_malloc(draw_buffer_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_DEFAULT);
     assert(buf2);
+
     // initialize LVGL draw buffers
     lv_display_set_buffers(display, buf1, buf2, draw_buffer_sz, LV_DISPLAY_RENDER_MODE_PARTIAL);
     // associate the mipi panel handle to the display
