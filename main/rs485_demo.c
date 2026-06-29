@@ -70,7 +70,7 @@ void rs485_read(void *arg) {
 }
 
 void rs485_demo(void) {
-    if (false == rs485_uart_init(UART_PORT_NUM, 115200, RS485_TXD_PIN, RS485_RXD_PIN, RS485_RTS_PIN))
+    if (!rs485_uart_init(UART_PORT_NUM, 115200, RS485_TXD_PIN, RS485_RXD_PIN, RS485_RTS_PIN))
     {
         ESP_LOGE(TAG, "RS485 init error");
         return;

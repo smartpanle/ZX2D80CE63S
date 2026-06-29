@@ -11,5 +11,5 @@ endif()
 idf_component_register(
     SRCS ${app_srcs}
     INCLUDE_DIRS "."
-    REQUIRES driver esp_lcd esp_timer esp_driver_uart esp_driver_gpio
+    REQUIRES driver esp_lcd esp_timer esp_driver_uart esp_driver_gpio generated
 )

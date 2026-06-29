@@ -20,6 +20,7 @@
 #include "esp_log.h"
 #include "lvgl.h"
 #include "ZX2D80CE63S-V10_pin.h"
+#include "esp_lcd_st7789.h"
 
 #if CONFIG_LV_USE_DEMO_WIDGETS
 #include "demos/widgets/lv_demo_widgets.h"
@@ -74,6 +75,62 @@ static const char *TAG = "example";
 #define EXAMPLE_LVGL_TASK_MIN_DELAY_MS 1000 / CONFIG_FREERTOS_HZ
 #define EXAMPLE_LVGL_TASK_STACK_SIZE   (8 * 1024)
 #define EXAMPLE_LVGL_TASK_PRIORITY     2
+
+static const st7789_lcd_init_cmd_t vendor_lcd_init_cmds[] = {
+    {0x11, 0, 0, 120},
+
+    {0x36, (uint8_t[]){0x00}, 1, 0},
+
+    {0x3A, (uint8_t[]){0x05}, 1, 0},
+
+    {0xB2, (uint8_t[]){0x0C, 0x0C, 0x00, 0x33, 0x33}, 5, 0},
+
+    {0xB7, (uint8_t[]){0x46}, 1, 0},
+
+    {0xBB, (uint8_t[]){0x1B}, 1, 0},
+
+    {0xC0, (uint8_t[]){0x2C}, 1, 0},
+
+    {0xC2, (uint8_t[]){0x01}, 1, 0},
+
+    {0xC3, (uint8_t[]){0x0F}, 1, 0},
+
+    {0xC4, (uint8_t[]){0x20}, 1, 0},
+
+    {0xC6, (uint8_t[]){0x0F}, 1, 0},
+
+    {0xD0, (uint8_t[]){0xA7, 0xA1}, 2, 0},
+
+    {0xD0, (uint8_t[]){0xA4, 0xA1}, 2, 0},
+
+    {0xD6, (uint8_t[]){0xA1}, 1, 0},
+
+    {0xE0, (uint8_t[]){
+        0xF0, 0x00, 0x06, 0x04, 0x05, 0x05,
+        0x31, 0x44, 0x48, 0x36, 0x12, 0x12,
+        0x2B, 0x34
+    }, 14, 0},
+
+    {0xE1, (uint8_t[]){
+        0xF0, 0x0B, 0x0F, 0x0F, 0x0D, 0x26,
+        0x31, 0x43, 0x47, 0x38, 0x14, 0x14,
+        0x2C, 0x32
+    }, 14, 0},
+
+    {0x21, 0, 0, 0},
+
+    {0x29, 0, 0, 0},
+
+    {0x2C, 0, 0, 0},
+};
+
+#define VENDOR_LCD_INIT_CMD_COUNT \
+    (sizeof(vendor_lcd_init_cmds) / sizeof(vendor_lcd_init_cmds[0]))
+
+static st7789_vendor_config_t st7789_vendor = {
+    .init_cmds = vendor_lcd_init_cmds,
+    .init_cmds_size = VENDOR_LCD_INIT_CMD_COUNT,
+};
 
 // LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
 static _lock_t lvgl_api_lock;
@@ -224,6 +281,7 @@ void app_main(void)
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
+        .vendor_config = &st7789_vendor,
     };
     ESP_LOGI(TAG, "Install ST7789 panel driver");
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
