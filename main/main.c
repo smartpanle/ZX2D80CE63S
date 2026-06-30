@@ -10,7 +10,6 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
-#include "esp_lcd_st7789.h"
 #include "esp_lcd_touch.h"
 #include "esp_lcd_touch_ft5x06.h"
 #include "driver/gpio.h"
@@ -20,7 +19,8 @@
 #include "esp_log.h"
 #include "lvgl.h"
 #include "ZX2D80CE63S-V10_pin.h"
-#include "esp_lcd_st7789.h"
+#include "esp_lcd_panel_st7789.h"
+#include "st7789_vendor.h"
 
 #if CONFIG_LV_USE_DEMO_WIDGETS
 #include "demos/widgets/lv_demo_widgets.h"
@@ -76,62 +76,6 @@ static const char *TAG = "example";
 #define EXAMPLE_LVGL_TASK_STACK_SIZE   (8 * 1024)
 #define EXAMPLE_LVGL_TASK_PRIORITY     2
 
-static const st7789_lcd_init_cmd_t vendor_lcd_init_cmds[] = {
-    {0x11, 0, 0, 120},
-
-    {0x36, (uint8_t[]){0x00}, 1, 0},
-
-    {0x3A, (uint8_t[]){0x05}, 1, 0},
-
-    {0xB2, (uint8_t[]){0x0C, 0x0C, 0x00, 0x33, 0x33}, 5, 0},
-
-    {0xB7, (uint8_t[]){0x46}, 1, 0},
-
-    {0xBB, (uint8_t[]){0x1B}, 1, 0},
-
-    {0xC0, (uint8_t[]){0x2C}, 1, 0},
-
-    {0xC2, (uint8_t[]){0x01}, 1, 0},
-
-    {0xC3, (uint8_t[]){0x0F}, 1, 0},
-
-    {0xC4, (uint8_t[]){0x20}, 1, 0},
-
-    {0xC6, (uint8_t[]){0x0F}, 1, 0},
-
-    {0xD0, (uint8_t[]){0xA7, 0xA1}, 2, 0},
-
-    {0xD0, (uint8_t[]){0xA4, 0xA1}, 2, 0},
-
-    {0xD6, (uint8_t[]){0xA1}, 1, 0},
-
-    {0xE0, (uint8_t[]){
-        0xF0, 0x00, 0x06, 0x04, 0x05, 0x05,
-        0x31, 0x44, 0x48, 0x36, 0x12, 0x12,
-        0x2B, 0x34
-    }, 14, 0},
-
-    {0xE1, (uint8_t[]){
-        0xF0, 0x0B, 0x0F, 0x0F, 0x0D, 0x26,
-        0x31, 0x43, 0x47, 0x38, 0x14, 0x14,
-        0x2C, 0x32
-    }, 14, 0},
-
-    {0x21, 0, 0, 0},
-
-    {0x29, 0, 0, 0},
-
-    {0x2C, 0, 0, 0},
-};
-
-#define VENDOR_LCD_INIT_CMD_COUNT \
-    (sizeof(vendor_lcd_init_cmds) / sizeof(vendor_lcd_init_cmds[0]))
-
-static st7789_vendor_config_t st7789_vendor = {
-    .init_cmds = vendor_lcd_init_cmds,
-    .init_cmds_size = VENDOR_LCD_INIT_CMD_COUNT,
-};
-
 // LVGL library is not thread-safe, this example will call LVGL APIs from different tasks, so use a mutex to protect it
 static _lock_t lvgl_api_lock;
 
@@ -147,8 +91,8 @@ static bool example_notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, 
     return false;
 }
 
-/* Rotate display and touch, when rotated screen in LVGL. Called when driver parameters are updated. */
-static void example_lvgl_port_update_callback(lv_display_t *disp)
+/* Update the rotation angle for the screen */
+static void example_screen_update_rotation(lv_display_t *disp)
 {
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
     lv_display_rotation_t rotation = lv_display_get_rotation(disp);
@@ -179,14 +123,11 @@ static void example_lvgl_port_update_callback(lv_display_t *disp)
 
 static void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    example_lvgl_port_update_callback(disp);
     esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
     int offsetx1 = area->x1;
     int offsetx2 = area->x2;
     int offsety1 = area->y1;
     int offsety2 = area->y2;
-    // because SPI LCD is big-endian, we need to swap the RGB bytes order
-    lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1));
     // copy a buffer's content to a specific area of the display
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
 }
@@ -281,12 +222,13 @@ void app_main(void)
         .reset_gpio_num = EXAMPLE_PIN_NUM_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = 16,
-        .vendor_config = &st7789_vendor,
+        .data_endian = LCD_RGB_DATA_ENDIAN_LITTLE,
     };
     ESP_LOGI(TAG, "Install ST7789 panel driver");
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    ESP_ERROR_CHECK(panel_st7789_init(io_handle, NULL));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));
 
     // user can flush pre-defined pattern to the screen before we turn on the screen or backlight
@@ -300,7 +242,6 @@ void app_main(void)
 
     // create a lvgl display
     lv_display_t *display = lv_display_create(EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES);
-    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
 
     // alloc draw buffers used by LVGL
     // it's recommended to choose the size of the draw buffer(s) to be at least 1/10 screen sized
@@ -319,6 +260,9 @@ void app_main(void)
     lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
     // set the callback which can copy the rendered image to an area of the display
     lv_display_set_flush_cb(display, example_lvgl_flush_cb);
+    // set screen rotation
+    lv_display_set_rotation(display, LV_DISPLAY_ROTATION_0);
+    example_screen_update_rotation(display);
 
     ESP_LOGI(TAG, "Install LVGL tick timer");
     // Tick interface for LVGL (using esp_timer to generate 2ms periodic event)
