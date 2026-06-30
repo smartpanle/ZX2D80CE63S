@@ -231,12 +231,6 @@ void app_main(void)
     ESP_ERROR_CHECK(panel_st7789_init(io_handle, NULL));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, false, false));
 
-    // user can flush pre-defined pattern to the screen before we turn on the screen or backlight
-    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
-
-    ESP_LOGI(TAG, "Turn on LCD backlight");
-    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
-
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
 
@@ -334,6 +328,9 @@ void app_main(void)
     _lock_acquire(&lvgl_api_lock);
 #if CONFIG_LV_USE_DEMO_WIDGETS && CONFIG_APP_ENABLE_LVGL
     lv_demo_widgets();
+
+    ESP_LOGI(TAG, "Turn on LCD backlight");
+    gpio_set_level(EXAMPLE_PIN_NUM_BK_LIGHT, EXAMPLE_LCD_BK_LIGHT_ON_LEVEL);
 #else
     example_lvgl_demo_ui(display);
 #endif
